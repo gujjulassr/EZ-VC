@@ -22,7 +22,7 @@ git submodule update --init --recursive || exit 1
 "$V/pip" install "transformers<5" "huggingface_hub<1" "datasets<4" "gradio<6" || exit 1
 #   ^ the repo pins no versions: the newest transformers needs torch 2.6 (the README's torch is 2.4), the newest datasets and gradio
 #     need the hub 1.x that transformers 4 cannot use; these four are the versions of EZ-VC's own release time
-"$V/pip" install -q soundfile librosa joblib cached_path huggingface_hub
+"$V/pip" install -q soundfile librosa joblib cached_path huggingface_hub "scikit-learn==1.5.1"   # the k-means file was pickled with 1.5.1; another version warns of invalid results
 echo "== 3/4 the weights (gated on the hub)"
 "$V/python" -c "from huggingface_hub import hf_hub_download; hf_hub_download('SPRINGLab/EZ-VC', 'vocab.txt')" 2> /dev/null \
     || { echo "STOP: no access to SPRINGLab/EZ-VC yet. Once: open https://huggingface.co/SPRINGLab/EZ-VC, accept the terms, then  $V/hf auth login  (paste a token), and run this script again"; exit 1; }
