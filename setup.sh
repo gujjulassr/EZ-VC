@@ -27,7 +27,7 @@ echo "== 3/4 the weights (gated on the hub)"
 "$V/python" -c "from huggingface_hub import hf_hub_download; hf_hub_download('SPRINGLab/EZ-VC', 'vocab.txt')" 2> /dev/null \
     || { echo "STOP: no access to SPRINGLab/EZ-VC yet. Once: open https://huggingface.co/SPRINGLab/EZ-VC, accept the terms, then  $V/hf auth login  (paste a token), and run this script again"; exit 1; }
 echo "== 4/4 smoke test on card $CARD: the repo's example pair (the first run downloads XEUS, the k-means and BigVGAN)"
-EX=src/f5_tts/infer/examples/wavs; mkdir -p smoke
+EX=$HERE/src/f5_tts/infer/examples/wavs; mkdir -p smoke     # absolute paths: batch_infer.py runs from its own folder
 printf '%s\t%s\t%s\n' "$EX/237_134493_000015_000004.wav" "$EX/14_208_000042_000000.wav" smoke.wav > smoke/manifest.tsv
 (cd src/f5_tts/infer && CUDA_VISIBLE_DEVICES=$CARD "$V/python" batch_infer.py --manifest "$HERE/smoke/manifest.tsv" --out "$HERE/smoke" --overwrite) || exit 1
 echo "== EZ-VC ready: $HERE/smoke/smoke.wav is the example pair converted. See 'Running on a manifest' in README.md."
