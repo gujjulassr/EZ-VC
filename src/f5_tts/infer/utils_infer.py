@@ -402,8 +402,8 @@ def infer_process(
     max_chars = int(len(ref_text.encode("utf-8")) / (audio.shape[-1] / sr) * (22 - audio.shape[-1] / sr) * speed)
     gen_text_batches = chunk_text(gen_text, max_chars=max_chars)
     for i, gen_text in enumerate(gen_text_batches):
-        print(f"gen_text {i}", gen_text)
-    print("\n")
+        show_info(f"gen_text {i} {gen_text}")          # through show_info, so a batch caller can keep its screen quiet
+    show_info("")
 
     show_info(f"Generating audio in {len(gen_text_batches)} batches...")
     return next(

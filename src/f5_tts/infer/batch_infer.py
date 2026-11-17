@@ -252,6 +252,7 @@ def main():
             gen_text_ = re.sub(r"\[(\w+)\]", "", chunk).strip()
             audio_segment, _, _ = infer_process(
                 ref_audio, ref_text, gen_text_, ema_model, vocoder,
+                show_info=lambda *_a, **_k: None, progress=None,     # no per-file chatter: this script's own count is the progress
                 mel_spec_type=a.vocoder_name, target_rms=target_rms,
                 cross_fade_duration=cross_fade_duration, nfe_step=nfe,
                 cfg_strength=cfg_strength, sway_sampling_coef=sway_sampling_coef,
