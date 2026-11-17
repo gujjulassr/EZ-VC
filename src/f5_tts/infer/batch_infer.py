@@ -16,6 +16,11 @@ this script disagree on a file, that is a bug here, not a design choice.
     # many pairs, from a manifest
     python batch_infer.py --manifest pairs.tsv --out converted/
 
+    # the same on several GPUs: one worker per card, each on its share of the
+    # manifest, one progress line here (done/total, rate, time left); Ctrl-C
+    # stops every worker, and the same line resumes (files made are kept)
+    python batch_infer.py --manifest pairs.tsv --out converted/ --cards 0,1,3
+
 manifest.tsv — one pair per line, tab separated, optional third column for the
 output name:
 
@@ -36,6 +41,7 @@ import argparse
 import os
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")   # hub downloads over plain HTTP (the xet transfer can stall)
 import re
+import subprocess
 import sys
 import time
 import traceback
@@ -109,6 +115,63 @@ def build_jobs(a):
     return jobs
 
 
+def run_workers(a, jobs):
+    """--cards: one copy of this script per card (CUDA_VISIBLE_DEVICES=<card>, --shard i/n = every n-th manifest
+    line from the i-th), its output in <out>/ezvc_card<card>.log; here one progress line counted from the files that
+    appear. Returns the exit code: 0 when every job's file exists and every worker ended well."""
+    cards = [c for c in a.cards.split(",") if c]
+    n = len(cards)
+    base = [sys.executable, os.path.abspath(__file__), "--out", a.out, "--nfe", str(a.nfe), "--speed", str(a.speed),
+            "--device", a.device, "--vocoder_name", a.vocoder_name, "--ckpt_file", a.ckpt_file, "--vocab_file", a.vocab_file]
+    base += ["--manifest", a.manifest] if a.manifest else ["--src_dir", a.src_dir, "--ref", a.ref]
+    if a.config:
+        base += ["--config", a.config]
+    if a.overwrite:
+        base.append("--overwrite")
+    if a.limit:
+        base += ["--limit", str(a.limit)]
+    os.makedirs(a.out, exist_ok=True)
+    procs, logs = [], []
+    for i, c in enumerate(cards):
+        log = os.path.join(a.out, f"ezvc_card{c}.log")
+        env = {**os.environ, "CUDA_VISIBLE_DEVICES": c}
+        env.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+        with open(log, "w") as fh:
+            procs.append(subprocess.Popen(base + ["--shard", f"{i}/{n}"], stdout=fh, stderr=subprocess.STDOUT, env=env))
+        logs.append(log)
+    outs = [os.path.join(a.out, name) for _, _, name in jobs]
+    total = len(outs)
+    print(f"{total} file(s) on {n} card(s) ({a.cards}); each worker's log: {a.out}/ezvc_card<N>.log; "
+          f"the first minute loads the models; Ctrl-C stops every worker", flush=True)
+    t0 = time.time()
+    try:
+        while True:
+            done = sum(os.path.exists(p) for p in outs)
+            el = time.time() - t0
+            rate = done / el if done else 0.0
+            left = f"{(total - done) / rate / 60:.0f} min left" if rate else "..."
+            print(f"\r  {done}/{total}  {el / 60:.0f} min  {rate * 60:.0f}/min  {left}      ", end="", flush=True)
+            if all(p.poll() is not None for p in procs):
+                break
+            time.sleep(10)
+    except KeyboardInterrupt:
+        for p in procs:
+            p.terminate()
+        print("\nstopped; the files made are kept, the same line resumes")
+        return 130
+    print()
+    done = sum(os.path.exists(p) for p in outs)
+    print(f"{done} of {total} converted  ->  {a.out}")
+    bad = 0
+    for c, p, log in zip(cards, procs, logs):
+        if p.returncode:
+            bad += 1
+            with open(log, errors="replace") as fh:
+                tail = fh.read().splitlines()[-8:]
+            print(f"card {c} ended with code {p.returncode}; the end of its log {log}:\n  " + "\n  ".join(tail))
+    return 1 if bad or done < total else 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src_dir", help="directory of source clips (the speech to convert)")
@@ -125,6 +188,8 @@ def main():
     ap.add_argument("--overwrite", action="store_true", help="redo files already in --out")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--dry_run", action="store_true", help="list the jobs and exit")
+    ap.add_argument("--cards", help="several GPUs, e.g. 0,1,3: one worker per card on its share of the jobs, one progress line")
+    ap.add_argument("--shard", help="internal (a --cards worker): i/n, every n-th job from the i-th")
     a = ap.parse_args()
 
     if not a.manifest and not (a.src_dir and a.ref):
@@ -133,7 +198,10 @@ def main():
     jobs = build_jobs(a)
     if a.limit:
         jobs = jobs[: a.limit]
-    if not jobs:
+    if a.shard:                                        # a --cards worker: its share, cut before the skip below so the
+        i, n = map(int, a.shard.split("/"))            # shares never shift as files appear
+        jobs = jobs[i::n]
+    if not jobs and not a.shard:
         sys.exit("nothing to do — no source clips found")
 
     os.makedirs(a.out, exist_ok=True)
@@ -149,6 +217,10 @@ def main():
             print(f"  {os.path.basename(s)}  +  {os.path.basename(r)}  ->  {n}")
         if len(jobs) > 20:
             print(f"  ... and {len(jobs)-20} more")
+        return
+    if a.cards:
+        sys.exit(run_workers(a, jobs))
+    if not jobs:                                       # a worker whose share is already done
         return
 
     cfg = a.config or default_config_path()

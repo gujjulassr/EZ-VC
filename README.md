@@ -130,3 +130,11 @@ subfolder. Outputs are 16 kHz; lines whose output exists are skipped, so a stopp
 ```bash
 cd src/f5_tts/infer && CUDA_VISIBLE_DEVICES=0 ../../../venv/bin/python batch_infer.py --manifest /path/to/manifest.tsv --out /path/to/output_folder
 ```
+
+On several GPUs, `--cards 0,1,3` runs one worker per card, each on its share of the manifest, with one progress line
+(done/total, rate, time left); each worker's output goes to `<output_folder>/ezvc_card<N>.log`. Ctrl-C stops every
+worker, and the same line resumes:
+
+```bash
+cd src/f5_tts/infer && ../../../venv/bin/python batch_infer.py --manifest /path/to/manifest.tsv --out /path/to/output_folder --cards 0,1,3
+```
