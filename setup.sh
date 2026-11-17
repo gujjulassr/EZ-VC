@@ -5,6 +5,7 @@
 # test, the repo's example pair converted on one card by batch_infer.py, so a broken install shows here.
 # HOW TO RUN (in this folder, once):   bash setup.sh          (PY=/path/to/python3.10  CARD=0 in front to change)
 HERE=$(cd "$(dirname "$0")" && pwd); cd "$HERE" || exit 1
+export HF_HUB_DISABLE_XET=1          # hub downloads over plain HTTP: the xet transfer stalls without progress on this network
 CARD=${CARD:-0}
 PY=${PY:-$(command -v python3.10 || command -v python3.11 || command -v python3.12 || command -v python3)}
 "$PY" -c 'import sys; assert sys.version_info >= (3, 10), sys.version' 2> /dev/null \

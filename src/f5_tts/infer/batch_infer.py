@@ -34,6 +34,7 @@ A NOTE ON "ref_text" AND "src_text"
 
 import argparse
 import os
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")   # hub downloads over plain HTTP (the xet transfer can stall)
 import re
 import sys
 import time
