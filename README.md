@@ -113,3 +113,20 @@ If our work and codebase is useful for you, please cite as:
 ## License
 
 Our code is released under MIT License. The pre-trained models are licensed under the CC-BY-NC license. Sorry for any inconvenience this may cause.
+
+## Running on a manifest
+
+`setup.sh` makes a plain venv in this folder (Python 3.10 or newer), installs the pinned PyTorch, this repo and the
+espnet fork, checks that the gated weights are reachable and converts the repo's example pair as a smoke test:
+
+```bash
+bash setup.sh
+```
+
+`src/f5_tts/infer/batch_infer.py` converts a whole list with the models loaded once. The manifest is a tab-separated
+file, one line per conversion: source wav, reference wav (the target voice), and the output name, which may carry a
+subfolder. Outputs are 16 kHz; lines whose output exists are skipped, so a stopped run can be rerun:
+
+```bash
+cd src/f5_tts/infer && CUDA_VISIBLE_DEVICES=0 ../../../venv/bin/python batch_infer.py --manifest /path/to/manifest.tsv --out /path/to/output_folder
+```

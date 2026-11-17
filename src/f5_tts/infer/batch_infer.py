@@ -21,6 +21,7 @@ output name:
 
     source.wav<TAB>reference.wav
     source.wav<TAB>reference.wav<TAB>custom_name.wav
+    source.wav<TAB>reference.wav<TAB>subfolder/custom_name.wav   (subfolders are created)
 
 A NOTE ON "ref_text" AND "src_text"
   These are NOT transcripts. EZ-VC reuses F5-TTS's text arguments to carry
@@ -204,7 +205,9 @@ def main():
             gen = infer(ref, ref_text, src_text, spd=a.speed, nfe=a.nfe)
             if gen is None:
                 raise RuntimeError("no audio segments generated")
-            sf.write(os.path.join(a.out, name), gen, OUT_SR)
+            out_path = os.path.join(a.out, name)
+            os.makedirs(os.path.dirname(out_path) or a.out, exist_ok=True)   # names may carry subfolders (speaker/clip.wav)
+            sf.write(out_path, gen, OUT_SR)
             done += 1
             if i % 10 == 0 or i == len(jobs):
                 el = time.time() - t0
