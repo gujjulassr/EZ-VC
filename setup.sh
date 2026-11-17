@@ -19,6 +19,7 @@ echo "== 2/4 torch 2.4 cu124, this repo and its submodule, the espnet fork for X
 git submodule update --init --recursive || exit 1
 "$V/pip" install -e . || exit 1
 "$V/pip" install 'espnet @ git+https://github.com/wanchichen/espnet.git@ssl' || exit 1
+"$V/pip" install "transformers<5" || exit 1     # the espnet fork drags in transformers 5, which needs torch 2.6; the README's torch is 2.4
 "$V/pip" install -q soundfile librosa joblib cached_path huggingface_hub
 echo "== 3/4 the weights (gated on the hub)"
 "$V/python" -c "from huggingface_hub import hf_hub_download; hf_hub_download('SPRINGLab/EZ-VC', 'vocab.txt')" 2> /dev/null \
